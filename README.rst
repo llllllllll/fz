@@ -1,10 +1,10 @@
 ``fz`` 0.1
-=========
+==========
 
 Quick and efficient lambda functions.
 
 What is ``fz``?
---------------
+---------------
 
 ``fz`` provides a nicer way to define lambda functions for Python 3. The syntax
 is inspired by C++ ``std::bind``, Scala lambdas, and `quicklambda

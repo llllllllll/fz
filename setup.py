@@ -11,7 +11,7 @@ if 'upload' in sys.argv:
 
 setup(
     name='fz',
-    version='0.1.0',
+    version='0.1.1',
     description='Quick and efficient lambda functions.',
     author='Joe Jevnik',
     author_email='joejev@gmail.com',
