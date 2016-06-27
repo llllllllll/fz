@@ -1,12 +1,12 @@
-``_`` 0.1
+``fz`` 0.1
 =========
 
 Quick and efficient lambda functions.
 
-What is ``_``?
+What is ``fz``?
 --------------
 
-``_`` provides a nicer way to define lambda functions for Python 3. The syntax
+``fz`` provides a nicer way to define lambda functions for Python 3. The syntax
 is inspired by C++ ``std::bind``, Scala lambdas, and `quicklambda
 <https://github.com/abarnert/quicklambda>`_ for python.
 
@@ -14,7 +14,7 @@ is inspired by C++ ``std::bind``, Scala lambdas, and `quicklambda
 Syntax
 ------
 
-``_`` lambdas use placeholder objects to represent the arguments to the new
+``fz`` lambdas use placeholder objects to represent the arguments to the new
 lambda. The placeholders look like: ``_1``, ``_2``, ..., all the way to ``_255``
 (the maximum number of positional arguments to a function).
 
@@ -31,7 +31,7 @@ Many lambdas are just simple arithmetic. For example:
 
 .. code-block:: python
 
-   >>> from _ import _1
+   >>> from fz import _1
    >>> f = _1 + 1
    >>> f(1)
    2
@@ -50,7 +50,8 @@ Attribute and Item Access
 
 .. code-block::
 
-   >>> from _ import _1
+   >>> from fz import _1
+
    >>> _1[0]([1, 2])
    1
    >>> list(map(_1[1], [(0, 1), (2, 3), (4, 5)]))
@@ -69,7 +70,7 @@ to be defered.
 
 .. code-block:: python
 
-   >>> from _ import _f, _1, _2, _3
+   >>> from fz import _f, _1, _2, _3
    >>> def f(a, b):
    ...     return a + b
    >>> _f(f)(_1, _2)(1, 2)
@@ -98,11 +99,11 @@ Supported Operations
 License
 -------
 
-``_`` is free software, licensed under the GNU General Public
+``fz`` is free software, licensed under the GNU General Public
 License, version 2. For more information see the ``LICENSE`` file.
 
 
 Source
 ------
 
-Source code is hosted on github at https://github.com/llllllllll/_.
+Source code is hosted on github at https://github.com/llllllllll/fz.

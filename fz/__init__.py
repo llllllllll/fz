@@ -9,6 +9,9 @@ from toolz.curried import operator as op
 from codetransformer.transformers import asconstants
 
 
+__all__ = ['_v', '_f']
+
+
 class _NameSubstitute(ast.NodeTransformer):
     """Substitute the roots of a placeholder lambda with a unique name node.
 
@@ -35,13 +38,13 @@ _binop_map = {
     '__add__': (ast.Add, '+'),
     '__sub__': (ast.Sub, '-'),
     '__mul__': (ast.Mult, '*'),
-    '__div__': (ast.Div, '/'),
+    '__truediv__': (ast.Div, '/'),
     '__floordiv__': (ast.FloorDiv, '//'),
     '__mod__': (ast.Mod, '%'),
     '__pow__': (ast.Pow, '**'),
     '__and__': (ast.BitAnd, '&'),
     '__or__': (ast.BitOr, '|'),
-    '__xor__': (ast.BitOr, '^'),
+    '__xor__': (ast.BitXor, '^'),
     '__lshift__': (ast.LShift, '<<'),
     '__rshift__': (ast.RShift, '>>'),
 }
@@ -107,6 +110,9 @@ class _class_doc:
         if instance is None:
             return self._class_doc
         return '\n\n'.join((self._instance_prefix, str(instance)))
+
+
+__class__ = None  # silence name error warnings in flycheck
 
 
 class placeholder(ast.AST):
@@ -214,7 +220,7 @@ class placeholder(ast.AST):
         return asconstants(**self._constants)(ns[name])
 
     def __getattr__(self, attr):
-        return type(self)(
+        return __class__(
             '%s.%s' % (self._pname, attr),
             ast.Attribute(
                 value=self._tree,
@@ -226,7 +232,7 @@ class placeholder(ast.AST):
 
     def __getitem__(self, key):
         keyname, key, constants = _normalize_arg(key, self._constants)
-        return type(self)(
+        return __class__(
             '%s[%s]' % (self._pname, keyname),
             ast.Subscript(
                 value=self._tree,
@@ -244,7 +250,7 @@ class placeholder(ast.AST):
                 self._constants,
             )
 
-            return type(self)(
+            return __class__(
                 '%s %s %s' % (self._pname, _sym, othername),
                 ast.BinOp(
                     left=self._tree,
@@ -262,7 +268,7 @@ class placeholder(ast.AST):
                 self._constants,
             )
 
-            return type(self)(
+            return __class__(
                 '%s %s %s' % (self._pname, _sym, othername),
                 ast.Compare(
                     left=self._tree,
@@ -277,7 +283,7 @@ class placeholder(ast.AST):
     for opname, (opnode, sym) in _unop_map.items():
         @op.setitem(locals(), opname)
         def _unop(self, *, _opnode=opnode, _sym=sym):
-            return type(self)(
+            return __class__(
                 '%s%s' % (_sym, self._pname),
                 ast.UnaryOp(
                     op=_opnode(),
@@ -291,7 +297,7 @@ class placeholder(ast.AST):
     for _fnname in ('abs', 'next', 'iter'):
         @op.setitem(locals(), '__%s__' % _fnname)
         def _fnname(self, *, _fnname=_fnname):
-            return type(self)(
+            return __class__(
                 '%s(%s)' % (_fnname, self._name),
                 ast.Call(
                     func=ast.Name(id=_fnname, ctx=ast.Load()),
@@ -305,17 +311,18 @@ class placeholder(ast.AST):
     del _fnname
 
 
-class callable_placeholder:
-    """A wrapper around a callable for use in a placeholder lambda.
+class value_placeholder(placeholder):
+    """A wrapper around a value for use in a placeholder lambda.
 
-    This is used when you want to call a function on an input to the lambda.
-    Normally, call means execute the lambda expression so we need another
-    wrapper for this.
+    This is used when you want to use a non-argument as the root of some
+    expression, for example, ``_f(g)(_2, _1)`` to call a function on inputs
+    or ``_v(mapping)[_1, _2]`` to index into some object. This can also just
+    be used to put a value on the lhs of a binop like: ``_v(1) + _2``.
 
     Parameters
     ----------
-    fn : callable
-        The callable to wrap.
+    value : any
+        The value to wrap.
     tree : ast.AST, optional
         The ast for the lambda.
     constants : dict[str -> any], optional
@@ -332,42 +339,45 @@ class callable_placeholder:
     >>> _(print)('a', _1)(1)
     a 1
     """
-    __slots__ = '_fn', '_tree', '_constants'
+    __slots__ = '_value',
 
-    def __init__(self, fn):
-        self._fn = fn
-        self._tree = ast.Name(id=self._name, ctx=ast.Load())
-        self._constants = {} if isinstance(fn, placeholder) else {
-            fn.__name__: fn,
-        }
+    def __init__(self, value):
+        if isinstance(value, placeholder):
+            name = value._name
+        else:
+            try:
+                name = value.__name__
+            except AttributeError:
+                name = repr(value)
+
+        super().__init__(
+            name,
+            ast.Name(id=name, ctx=ast.Load()),
+            {} if isinstance(value, placeholder) else {name: value},
+        )
+        self._value = value
 
     @property
     def __signature__(self):
         try:
-            return self._fn.__signature__
+            return self._value.__signature__
         except AttributeError:
             pass
 
         try:
-            return Signature.from_function(self._fn)
+            return Signature.from_function(self._value)
         except TypeError:
             pass
 
         try:
-            return Signature.from_buultin(self._fn)
+            return Signature.from_buultin(self._value)
         except TypeError:
             pass
 
         return None
 
-    @property
-    def _name(self):
-        fn = self._fn
-        if isinstance(fn, placeholder):
-            return fn._name
-        return fn.__name__
-
     def __call__(self, *args, **kwargs):
+        # override super to not execute the lambda
         constants = self._constants
         argnames = []
         argvalues = []
@@ -383,6 +393,7 @@ class callable_placeholder:
             kwargnames.append(kwargname)
             kwargvalues.append(kwargvalue)
 
+        # return a normal placeholder, not a value_placeholder
         return placeholder(
             '%s(%s%s%s)' % (
                 self._name,
@@ -404,11 +415,13 @@ class callable_placeholder:
         return '<%s: %s>' % (type(self).__name__, self._name)
 
 
-_ = _f = callable_placeholder
+_f = _v = value_placeholder
 
 
 # populate the namespace with _1, _2, ... _255
 for n in range(255):
     name = '_%d' % (n + 1)
     globals()[name] = placeholder(name)
-del name
+    __all__.append(name)
+    del name
+del n

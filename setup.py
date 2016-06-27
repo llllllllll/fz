@@ -2,8 +2,6 @@
 from setuptools import setup, find_packages
 import sys
 
-import versioneer
-
 long_description = ''
 
 if 'upload' in sys.argv:
@@ -12,9 +10,8 @@ if 'upload' in sys.argv:
 
 
 setup(
-    name='_',
-    version=versioneer.get_version(),
-    cmdclass=versioneer.get_cmdclass(),
+    name='fz',
+    version='0.1.0',
     description='Quick and efficient lambda functions.',
     author='Joe Jevnik',
     author_email='joejev@gmail.com',
